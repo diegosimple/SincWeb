@@ -71,6 +71,9 @@ type
                            AUltimaAtualizacao: TDateTime;
                            out AClientes: TJSONArray): Boolean;
 
+    function ResetarEmpresa(const ACNPJ, AChaveApi: string;
+                           ACodigoEmpresa: Integer): Boolean;
+
   end;
 
 implementation
@@ -969,7 +972,71 @@ begin
   end;
 end;
 
+function TSincronizadorApi.ResetarEmpresa(const ACNPJ, AChaveApi: string;
+                                         ACodigoEmpresa: Integer): Boolean;
+var
+  LJSONResposta: TJSONObject;
+  LStatusCode: Integer;
+  LContent: string;
+  LSuccess: Boolean;
+  LMensagem: string;
+begin
+  Result := False;
 
+  if ACNPJ.Trim.IsEmpty then
+    raise Exception.Create('CNPJ não informado');
+
+  if AChaveApi.Trim.IsEmpty then
+    raise Exception.Create('Chave API não informada');
+
+  if ACodigoEmpresa <= 0 then
+    raise Exception.Create('Código da empresa inválido');
+
+  try
+    PrepareAuthHeaders(LApiKeyJWT, ACodigoEmpresa);
+
+    if not DoRequest('DELETE', 'empresa/reset', nil, LStatusCode, LContent) then
+    begin
+      if LStatusCode = 204 then
+      begin
+        Result := True; // 204 No Content = sucesso
+        Exit;
+      end;
+      raise Exception.CreateFmt('Erro HTTP %d ao resetar empresa', [LStatusCode]);
+    end;
+
+    if LContent.Trim = '' then
+    begin
+      Result := True; // Sucesso sem conteúdo
+      Exit;
+    end;
+
+    LJSONResposta := TJSONObject(TJSONObject.ParseJSONValue(LContent));
+    if not Assigned(LJSONResposta) then
+      raise Exception.Create('Resposta inválida da API ao resetar empresa');
+
+    try
+      if not LJSONResposta.TryGetValue<Boolean>('success', LSuccess) then
+        LSuccess := True; // Se não tem campo success, assume sucesso
+
+      if not LSuccess then
+      begin
+        if not LJSONResposta.TryGetValue<string>('error', LMensagem) then
+          LJSONResposta.TryGetValue<string>('message', LMensagem);
+        raise Exception.Create('Erro da API: ' + LMensagem);
+      end;
+
+      Result := True;
+    finally
+      LJSONResposta.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      raise Exception.Create('Erro ao resetar empresa: ' + E.Message);
+    end;
+  end;
+end;
 
 end.
 
