@@ -1,4 +1,4 @@
-program SincronizadorApp;
+﻿program SincronizadorApp;
 
 {*******************************************************************************
   SINCRONIZADOR FSVENDAS - Aplicação Desktop Delphi
